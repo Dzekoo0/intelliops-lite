@@ -38,3 +38,26 @@ if __name__ == "__main__":
     def test_classer_autre_cas(self):
         self.assertEqual(classer(evt("VULNERABILITY", "LOW", "CVE-1")), "LOW")
         self.assertEqual(classer(evt("LOG", "MEDIUM", "slow")), "MEDIUM")
+
+            def test_analyser_restart_critique(self):
+        e = evt("CONTAINER_RESTART", "HIGH", "OOMKilled restarts=14")
+        a = analyser(e, RUNBOOKS)
+        self.assertEqual(a.criticite, "CRITICAL")
+        self.assertEqual(a.cause_probable, RUNBOOKS["OOMKilled"])
+        self.assertEqual(a.action_recommandee, "Redémarrer backend")
+        self.assertTrue(a.sensible)
+        self.assertEqual(a.sources, ["DOCKER"])
+        self.assertEqual(e.status, "ANALYSED")
+
+    def test_analyser_cause_inconnue_non_sensible(self):
+        e = evt("LOG", "LOW", "tout va bien")
+        a = analyser(e, RUNBOOKS)
+        self.assertEqual(a.cause_probable, "Cause inconnue : analyse manuelle requise")
+        self.assertEqual(a.action_recommandee, "Consulter les logs")
+        self.assertFalse(a.sensible)
+
+    def test_analyser_vulnerabilite(self):
+        e = evt("VULNERABILITY", "CRITICAL", "Vulnérabilité CVE-2026-1234 détectée")
+        a = analyser(e, RUNBOOKS)
+        self.assertEqual(a.criticite, "HIGH")
+        self.assertEqual(a.action_recommandee, "Mettre à jour la dépendance")
