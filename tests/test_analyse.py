@@ -14,9 +14,6 @@ class TestAnalyse(unittest.TestCase):
         self.assertFalse(est_doublon(evt(message="a"), vus))
         self.assertTrue(est_doublon(evt(message="a"), vus))
 
-
-if __name__ == "__main__":
-    unittest.main()
     def test_runbook_trouve_sans_casse(self):
         e = evt(message="container oomkilled sur node-1")
         self.assertEqual(rechercher_runbook(e, RUNBOOKS), RUNBOOKS["OOMKilled"])
@@ -61,3 +58,7 @@ if __name__ == "__main__":
         a = analyser(e, RUNBOOKS)
         self.assertEqual(a.criticite, "HIGH")
         self.assertEqual(a.action_recommandee, "Mettre à jour la dépendance")
+
+
+if __name__ == "__main__":
+    unittest.main()

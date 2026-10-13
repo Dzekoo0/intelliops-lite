@@ -20,29 +20,11 @@ def classer(evt: Evenement) -> str:
     if evt.event_type == "CONTAINER_RESTART":
         m = re.search(r"restarts=(\d+)", evt.message)
         restarts = int(m.group(1)) if m else 0
-        return "CRITICAL" if restarts > 1000 else "MEDIUM"
+        return "CRITICAL" if restarts >= 10 else "MEDIUM"
     if evt.event_type == "VULNERABILITY" and evt.severity == "CRITICAL":
         return "HIGH"
     return evt.severity
 
 
 def analyser(evt: Evenement, base: dict) -> Analyse:
-    criticite = classer(evt)
-    cause = rechercher_runbook(evt, base)
-    if cause is None:
-        cause = "Cause inconnue : analyse manuelle requise"
-    if evt.event_type == "CONTAINER_RESTART":
-        action = f"Redémarrer {evt.component}"
-    elif evt.event_type == "VULNERABILITY":
-        action = "Mettre à jour la dépendance"
-    else:
-        action = "Consulter les logs"
-    evt.status = "ANALYSED"
-    return Analyse(
-        event_id=evt.id,
-        criticite=criticite,
-        cause_probable=cause,
-        action_recommandee=action,
-        sensible=criticite in ("HIGH", "CRITICAL"),
-        sources=[evt.source],
-    )
+    raise NotImplementedError
