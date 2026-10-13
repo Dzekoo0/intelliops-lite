@@ -17,14 +17,14 @@ class TestAnalyse(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-        def test_runbook_trouve_sans_casse(self):
+    def test_runbook_trouve_sans_casse(self):
         e = evt(message="container oomkilled sur node-1")
         self.assertEqual(rechercher_runbook(e, RUNBOOKS), RUNBOOKS["OOMKilled"])
 
     def test_runbook_absent(self):
         self.assertIsNone(rechercher_runbook(evt(message="rien"), RUNBOOKS))
 
-            def test_classer_redemarrages(self):
+    def test_classer_redemarrages(self):
         e = evt("CONTAINER_RESTART", "HIGH", "OOMKilled restarts=14")
         self.assertEqual(classer(e), "CRITICAL")
 
@@ -39,7 +39,7 @@ if __name__ == "__main__":
         self.assertEqual(classer(evt("VULNERABILITY", "LOW", "CVE-1")), "LOW")
         self.assertEqual(classer(evt("LOG", "MEDIUM", "slow")), "MEDIUM")
 
-            def test_analyser_restart_critique(self):
+    def test_analyser_restart_critique(self):
         e = evt("CONTAINER_RESTART", "HIGH", "OOMKilled restarts=14")
         a = analyser(e, RUNBOOKS)
         self.assertEqual(a.criticite, "CRITICAL")
