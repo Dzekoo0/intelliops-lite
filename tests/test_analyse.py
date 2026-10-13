@@ -23,3 +23,18 @@ if __name__ == "__main__":
 
     def test_runbook_absent(self):
         self.assertIsNone(rechercher_runbook(evt(message="rien"), RUNBOOKS))
+
+            def test_classer_redemarrages(self):
+        e = evt("CONTAINER_RESTART", "HIGH", "OOMKilled restarts=14")
+        self.assertEqual(classer(e), "CRITICAL")
+
+    def test_classer_redemarrages_limite(self):
+        self.assertEqual(classer(evt("CONTAINER_RESTART", "HIGH", "restarts=10")), "CRITICAL")
+        self.assertEqual(classer(evt("CONTAINER_RESTART", "HIGH", "restarts=9")), "MEDIUM")
+
+    def test_classer_vulnerabilite_critique(self):
+        self.assertEqual(classer(evt("VULNERABILITY", "CRITICAL", "CVE-1")), "HIGH")
+
+    def test_classer_autre_cas(self):
+        self.assertEqual(classer(evt("VULNERABILITY", "LOW", "CVE-1")), "LOW")
+        self.assertEqual(classer(evt("LOG", "MEDIUM", "slow")), "MEDIUM")

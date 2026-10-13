@@ -1,5 +1,5 @@
 from src.contrat import Analyse, Evenement
-
+import re
 
 
 def est_doublon(evt: Evenement, deja_vus: set) -> bool:
@@ -16,9 +16,14 @@ def rechercher_runbook(evt: Evenement, base: dict):
             return procedure
     return None
 
-
 def classer(evt: Evenement) -> str:
-    raise NotImplementedError
+    if evt.event_type == "CONTAINER_RESTART":
+        m = re.search(r"restarts=(\d+)", evt.message)
+        restarts = int(m.group(1)) if m else 0
+        return "CRITICAL" if restarts >= 10 else "MEDIUM"
+    if evt.event_type == "VULNERABILITY" and evt.severity == "CRITICAL":
+        return "HIGH"
+    return evt.severity
 
 
 def analyser(evt: Evenement, base: dict) -> Analyse:
