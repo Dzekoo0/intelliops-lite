@@ -3,15 +3,16 @@ import re
 from src.contrat import Evenement, SEVERITES
 
 _SECRET_RE = re.compile(
-    r"\b(password|passwd|token|secret|api_key)(\s*[=:]\s*)(\S+)",
-    re.IGNORECASE,
-)
+    r"(?i)\b(password|passwd|token|secret|api_key)(\s*[=:]\s*)\S+")
 
 _NIVEAUX = {"ERROR": "HIGH", "WARN": "MEDIUM", "INFO": "LOW"}
 
+_CLES_TRIVY = ["Target", "VulnerabilityID", "PkgName",
+               "InstalledVersion", "Severity", "Timestamp"]
+
 
 def masquer_secrets(texte: str) -> str:
-    """Remplace la valeur des secrets par [SECRET] (insensible à la casse)."""
+    """Remplace la valeur des secrets par [SECRET]."""
     return _SECRET_RE.sub(r"\1\2[SECRET]", texte)
 
 
@@ -40,4 +41,23 @@ def normaliser_docker(ligne: str, numero: int,
 
 def normaliser_trivy(rapport: dict, numero: int,
                      environment: str = "production") -> Evenement:
-    raise NotImplementedError
+    """Transforme un rapport Trivy en Evenement."""
+    for cle in _CLES_TRIVY:
+        if cle not in rapport:
+            raise ValueError(f"Clé manquante dans le rapport Trivy : {cle}")
+
+    severite = str(rapport["Severity"]).upper()
+    if severite not in SEVERITES:
+        severite = "LOW"
+
+    return Evenement(
+        id=f"EVT-{numero:05d}",
+        timestamp=rapport["Timestamp"],
+        source="TRIVY",
+        component=rapport["Target"],
+        environment=environment,
+        event_type="VULNERABILITY",
+        severity=severite,
+        message=(f"Vulnérabilité {rapport['VulnerabilityID']} détectée dans "
+                 f"{rapport['PkgName']} {rapport['InstalledVersion']}"),
+    )

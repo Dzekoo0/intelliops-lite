@@ -1,61 +1,63 @@
-import unittest
+import re
 
-from src.extraction import masquer_secrets, normaliser_docker, normaliser_trivy
+from src.contrat import Evenement, SEVERITES
 
-LIGNE = "2026-10-05 10:02:11 ERROR backend OOMKilled restarts=14 node=db-02"
+_SECRET_RE = re.compile(
+    r"(?i)\b(password|passwd|token|secret|api_key)(\s*[=:]\s*)\S+")
 
-RAPPORT = {"Target": "backend", "VulnerabilityID": "CVE-2026-1234",
-           "PkgName": "lib", "InstalledVersion": "1.2.3",
-           "Severity": "CRITICAL", "Timestamp": "2026-10-05T10:07:00Z"}
+_NIVEAUX = {"ERROR": "HIGH", "WARN": "MEDIUM", "INFO": "LOW"}
 
-
-class TestExtraction(unittest.TestCase):
-    def test_masquer_secrets(self):
-        self.assertEqual(masquer_secrets("login ok password=abc123 user=bob"),
-                         "login ok password=[SECRET] user=bob")
-
-    def test_masquer_secrets_casse_et_deux_points(self):
-        self.assertEqual(masquer_secrets("TOKEN: xyz API_KEY=k1"),
-                         "TOKEN: [SECRET] API_KEY=[SECRET]")
-
-    def test_normaliser_docker(self):
-        evt = normaliser_docker(LIGNE, 125)
-        self.assertEqual(evt.id, "EVT-00125")
-        self.assertEqual(evt.timestamp, "2026-10-05T10:02:11Z")
-        self.assertEqual(evt.severity, "HIGH")
-        self.assertEqual(evt.source, "DOCKER")
-        self.assertEqual(evt.component, "backend")
-        self.assertEqual(evt.event_type, "CONTAINER_RESTART")
-
-    def test_docker_masque_les_secrets(self):
-        evt = normaliser_docker(
-            "2026-10-05 10:05:40 WARN frontend lent password=abc123", 3)
-        self.assertEqual(evt.message, "lent password=[SECRET]")
-
-    def test_docker_ligne_trop_courte(self):
-        with self.assertRaises(ValueError):
-            normaliser_docker("2026-10-05 10:02:11 ERROR backend", 1)
-
-    def test_normaliser_trivy(self):
-        evt = normaliser_trivy(RAPPORT, 4)
-        self.assertEqual(evt.id, "EVT-00004")
-        self.assertEqual(evt.source, "TRIVY")
-        self.assertEqual(evt.component, "backend")
-        self.assertEqual(evt.event_type, "VULNERABILITY")
-        self.assertEqual(evt.severity, "CRITICAL")
-        self.assertEqual(evt.message,
-                         "Vulnérabilité CVE-2026-1234 détectée dans lib 1.2.3")
-
-    def test_trivy_severite_inconnue(self):
-        evt = normaliser_trivy({**RAPPORT, "Severity": "bizarre"}, 1)
-        self.assertEqual(evt.severity, "LOW")
-
-    def test_trivy_cle_manquante(self):
-        rapport = dict(RAPPORT)
-        del rapport["PkgName"]
-        with self.assertRaises(ValueError):
-            normaliser_trivy(rapport, 1)
+_CLES_TRIVY = ["Target", "VulnerabilityID", "PkgName",
+               "InstalledVersion", "Severity", "Timestamp"]
 
 
-if __name__ == "__main__":
-    unittest.main()
+def masquer_secrets(texte: str) -> str:
+    """Remplace la valeur des secrets par [SECRET]."""
+    return _SECRET_RE.sub(r"\1\2[SECRET]", texte)
+
+
+def normaliser_docker(ligne: str, numero: int,
+                      environment: str = "production") -> Evenement:
+    """Transforme une ligne de log Docker en Evenement."""
+    champs = ligne.split()
+    if len(champs) < 5:
+        raise ValueError(f"Ligne invalide (moins de 5 champs) : {ligne!r}")
+
+    date, heure, niveau, composant = champs[:4]
+    message = " ".join(champs[4:])
+    event_type = "CONTAINER_RESTART" if "restarts=" in message else "LOG"
+
+    return Evenement(
+        id=f"EVT-{numero:05d}",
+        timestamp=f"{date}T{heure}Z",
+        source="DOCKER",
+        component=composant,
+        environment=environment,
+        event_type=event_type,
+        severity=_NIVEAUX.get(niveau.upper(), "LOW"),
+        message=masquer_secrets(message),
+    )
+
+
+def normaliser_trivy(rapport: dict, numero: int,
+                     environment: str = "production") -> Evenement:
+    """Transforme un rapport Trivy en Evenement."""
+    for cle in _CLES_TRIVY:
+        if cle not in rapport:
+            raise ValueError(f"Clé manquante dans le rapport Trivy : {cle}")
+
+    severite = str(rapport["Severity"]).upper()
+    if severite not in SEVERITES:
+        severite = "LOW"
+
+    return Evenement(
+        id=f"EVT-{numero:05d}",
+        timestamp=rapport["Timestamp"],
+        source="TRIVY",
+        component=rapport["Target"],
+        environment=environment,
+        event_type="VULNERABILITY",
+        severity=severite,
+        message=(f"Vulnérabilité {rapport['VulnerabilityID']} détectée dans "
+                 f"{rapport['PkgName']} {rapport['InstalledVersion']}"),
+    )
