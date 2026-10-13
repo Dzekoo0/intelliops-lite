@@ -20,7 +20,7 @@ def classer(evt: Evenement) -> str:
     if evt.event_type == "CONTAINER_RESTART":
         m = re.search(r"restarts=(\d+)", evt.message)
         restarts = int(m.group(1)) if m else 0
-        return "CRITICAL" if restarts > 100 else "MEDIUM"
+        return "CRITICAL" if restarts > 1000 else "MEDIUM"
     if evt.event_type == "VULNERABILITY" and evt.severity == "CRITICAL":
         return "HIGH"
     return evt.severity
