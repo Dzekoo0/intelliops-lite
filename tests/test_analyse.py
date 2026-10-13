@@ -17,3 +17,9 @@ class TestAnalyse(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+        def test_runbook_trouve_sans_casse(self):
+        e = evt(message="container oomkilled sur node-1")
+        self.assertEqual(rechercher_runbook(e, RUNBOOKS), RUNBOOKS["OOMKilled"])
+
+    def test_runbook_absent(self):
+        self.assertIsNone(rechercher_runbook(evt(message="rien"), RUNBOOKS))
